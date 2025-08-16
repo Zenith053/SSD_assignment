@@ -1,22 +1,19 @@
-# SSD_assignment
-ASSIGNMENT_2 Database Setup and Execution Guide
-================================================
+# ASSIGNMENT\_2: Database Setup and Execution Guide
 
-1. Open MySQL client
---------------------
-Use MySQL Workbench, CLI, or any other MySQL client.
+## 1. Open MySQL Client
 
-2. Create and select database
-------------------------------
-Run the following commands:
+Use **MySQL Workbench**, CLI, or any other MySQL client.
 
+## 2. Create and Select Database
+
+```sql
 CREATE DATABASE IF NOT EXISTS ASSIGNMENT_2;
 USE ASSIGNMENT_2;
+```
 
-3. Create tables
-----------------
-Run the script to create the following tables in this order:
+## 3. Create Tables
 
+```sql
 -- Shows table
 CREATE TABLE Shows (
     ShowID INT PRIMARY KEY,
@@ -41,12 +38,11 @@ CREATE TABLE WatchHistory (
     FOREIGN KEY (ShowID) REFERENCES Shows(ShowID),
     FOREIGN KEY (SubscriberID) REFERENCES Subscribers(SubscriberID)
 );
+```
 
-4. Insert initial data
-----------------------
-Run the script to insert sample data into Shows, Subscribers, and WatchHistory:
+## 4. Insert Initial Data
 
--- Example Inserts
+```sql
 INSERT INTO Shows (ShowID, Title, Genre, ReleaseYear) VALUES
 (1, 'Stranger Things', 'Sci-Fi', 2016),
 (2, 'The Crown', 'Drama', 2016),
@@ -65,66 +61,64 @@ INSERT INTO WatchHistory (HistoryID, SubscriberID, ShowID, WatchTime) VALUES
 (5, 2, 3, 10),
 (6, 3, 2, 10),
 (7, 3, 1, 10);
+```
 
-5. Create stored procedures
----------------------------
-Drop existing procedures if any, then create them:
+## 5. Create Stored Procedures
 
--- Drop procedures
-DROP PROCEDURE IF EXISTS ListAllSubscribers
+```sql
+DROP PROCEDURE IF EXISTS ListAllSubscribers;
 DROP PROCEDURE IF EXISTS GetWatchHistoryBySubscriber;
 DROP PROCEDURE IF EXISTS AddSubscriberIfNotExists;
 DROP PROCEDURE IF EXISTS SendWatchTimeReports;
--- This is so that the sql command run hazzle free
+DROP PROCEDURE IF EXISTS SendReport;
+```
 
-----------------------------------------------------------------------------------------
-1>
-delimiter // 
-create procedure ListAllSubscribers()
-	begin
-    declare subs_name varchar(255);
-    declare done int default 0;
-    declare subs_cursor cursor for 
-    select SubscriberName from Subscribers; 
-	declare continue handler for not found set done = 1;
-    open subs_cursor;
-read_loop: LOOP
-		Fetch subs_cursor into subs_name;
-		if done =1 then leave read_loop;
-        end if;
-        select subs_name;
-	end LOOP;
-    close subs_cursor;
-       
-    end //
-delimiter ;
---------------------------------------------------------------------------------
--- Create procedures
-2>
+### 5.1 ListAllSubscribers
+
+```sql
 DELIMITER //
+CREATE PROCEDURE ListAllSubscribers()
+BEGIN
+    DECLARE subs_name VARCHAR(255);
+    DECLARE done INT DEFAULT 0;
+    DECLARE subs_cursor CURSOR FOR
+        SELECT SubscriberName FROM Subscribers;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
 
-create procedure GetWatchHistoryBySubscriber(IN sub_id INT)
-	begin
+    OPEN subs_cursor;
 
-	SELECT 
+    read_loop: LOOP
+        FETCH subs_cursor INTO subs_name;
+        IF done = 1 THEN LEAVE read_loop; END IF;
+        SELECT subs_name;
+    END LOOP;
+
+    CLOSE subs_cursor;
+END //
+DELIMITER ;
+```
+
+### 5.2 GetWatchHistoryBySubscriber
+
+```sql
+DELIMITER //
+CREATE PROCEDURE GetWatchHistoryBySubscriber(IN sub_id INT)
+BEGIN
+    SELECT
         s.SubscriberName,
         sh.Title AS ShowTitle,
         wh.WatchTime
-    FROM 
-        WatchHistory wh
-    JOIN 
-        Shows sh ON wh.ShowID = sh.ShowID
-    JOIN 
-        Subscribers s ON wh.SubscriberID = s.SubscriberID
-    WHERE 
-        wh.SubscriberID = sub_id; 
-	        
-    end //
-    delimiter ;
+    FROM WatchHistory wh
+    JOIN Shows sh ON wh.ShowID = sh.ShowID
+    JOIN Subscribers s ON wh.SubscriberID = s.SubscriberID
+    WHERE wh.SubscriberID = sub_id;
+END //
+DELIMITER ;
+```
 
----------------------------------------------------------------------------------
+### 5.3 AddSubscriberIfNotExists
 
-3> AddSubscriberIfNotExists(IN subName VARCHAR(100))
+```sql
 DELIMITER //
 CREATE PROCEDURE AddSubscriberIfNotExists(IN subName VARCHAR(100))
 BEGIN
@@ -138,77 +132,64 @@ BEGIN
     END IF;
 END //
 DELIMITER ;
-------------------------------------------------------------------------------------
-4>
+```
+
+### 5.4 SendWatchTimeReports
+
+```sql
 DELIMITER //
 CREATE PROCEDURE SendWatchTimeReports()
 BEGIN
-    SELECT 
+    SELECT
         s.SubscriberName,
         sh.Title AS ShowTitle,
         wh.WatchTime
-    FROM 
-        WatchHistory wh
-    JOIN 
-        Shows sh ON wh.ShowID = sh.ShowID
-    JOIN 
-        Subscribers s ON wh.SubscriberID = s.SubscriberID
-    ORDER BY 
-        s.SubscriberName, sh.Title;
+    FROM WatchHistory wh
+    JOIN Shows sh ON wh.ShowID = sh.ShowID
+    JOIN Subscribers s ON wh.SubscriberID = s.SubscriberID
+    ORDER BY s.SubscriberName, sh.Title;
 END //
-
 DELIMITER ;
------------------------------------------------------------------------------------
-5>
-DELIMITER //
+```
 
+### 5.5 SendReport
+
+```sql
+DELIMITER //
 CREATE PROCEDURE SendReport()
 BEGIN
     DECLARE done INT DEFAULT 0;
     DECLARE subId INT;
     DECLARE cur_subs CURSOR FOR
-        SELECT DISTINCT SubscriberID
-        FROM WatchHistory;
+        SELECT DISTINCT SubscriberID FROM WatchHistory;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
     OPEN cur_subs;
 
     read_loop: LOOP
         FETCH cur_subs INTO subId;
-        IF done THEN
-            LEAVE read_loop;
-        END IF;
+        IF done THEN LEAVE read_loop; END IF;
         CALL GetWatchHistoryBySubscriber(subId);
     END LOOP;
 
     CLOSE cur_subs;
 END //
-
 DELIMITER ;
----------------------------------------------------------------------------------------
-6. Execute procedures
-CALL ListAllSubscribers()
--- It uses cursor and thus goes row by row so the output might be
-   just a single row which was read last
-CALL GetWatchHistoryBySubscriber(IN SUB_ID)
--- It takes input as subscriber id and returns the shows watched by 
-   that subscriber
+```
 
-CALL AddSubscriberIfNotExists('Peeyush');
--- It takes input as a varchar and checks if the subscriber by that
-   name is present or not if not it adds.
+## 6. Execute Procedures
 
--- Get full watch time report for all subscribers
-CALL SendWatchTimeReports();
-
--- Get watch history for a specific subscriber
+```sql
+CALL ListAllSubscribers();
 CALL GetWatchHistoryBySubscriber(1);
+CALL AddSubscriberIfNotExists('Peeyush');
+CALL SendWatchTimeReports();
+```
 
+## 7. Notes
 
+- Ensure you are using the database: `USE ASSIGNMENT_2;`
+- AUTOCOMMIT should be enabled, or commit manually if needed.
+- Run scripts in this order: Tables → Inserts → Procedures → Procedure Calls.
+- This ensures foreign key constraints and default values work correctly.
 
-7. Notes
---------
-- Ensure you are using the database ASSIGNMENT_2 (USE ASSIGNMENT_2;).  
-- AUTOCOMMIT should be enabled, or commit manually if needed.  
-- By default commit is only enabled for 3rd part.
-- Run scripts in this order: tables → inserts → procedures → procedure calls.  
-- This setup ensures all foreign key constraints and default values work correctly.
